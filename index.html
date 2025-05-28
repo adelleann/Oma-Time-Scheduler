@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oma Time</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #e8e5ff 0%, #f0f8ff 100%);
+            min-height: 100vh;
+            color: #4a5568;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #9f7aea 0%, #667eea 100%);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(159, 122, 234, 0.3);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .user-selector {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 0.5rem;
+            display: inline-flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .user-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-btn.active {
+            background: white;
+            color: #667eea;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .calendar-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            background: white;
+            padding: 1rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(159, 122, 234, 0.1);
+        }
+
+        .nav-btn {
+            background: linear-gradient(135deg, #9f7aea 0%, #667eea 100%);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .month-year {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .calendar {
+            background: white;
+            border-radius: 15px;
+            padding: 1rem;
+            box-shadow: 0 4px 15px rgba(159, 122, 234, 0.1);
+            margin-bottom: 1rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+        }
+
+        .day-header {
+            text-align: center;
+            font-weight: 600;
+            padding: 0.5rem;
+            color: #667eea;
+            font-size: 0.9rem;
+        }
+
+        .day-cell {
+            aspect-ratio: 1;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            min-height: 60px;
+        }
+
+        .day-cell:hover {
+            border-color: #9f7aea;
+            transform: translateY(-2px);
+        }
+
+        .day-cell.other-month {
+            color: #cbd5e0;
+            background: #f7fafc;
+        }
+
+        .day-cell.today {
+            background: linear-gradient(135deg, #9f7aea 0%, #667eea 100%);
+            color: white;
+            font-weight: bold;
+        }
+
+        .day-cell.has-requests {
+            background: linear-gradient(135deg, #90cdf4 0%, #a78bfa 100%);
+            color: white;
+        }
+
+        .day-cell.unavailable {
+            background: linear-gradient(135deg, #ffb347 0%, #ffa726 100%);
+            color: white;
+        }
+
+        .day-cell.unavailable .request-count {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .day-number {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .request-count {
+            font-size: 0.7rem;
+            background: rgba(255, 255, 255, 0.3);
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-top: 2px;
+        }
+
+        .floating-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #9f7aea 0%, #667eea 100%);
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(159, 122, 234, 0.4);
+            transition: transform 0.3s ease;
+            display: none;
+        }
+
+        .floating-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .debug-info {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.4rem;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #9ca3af;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: #9f7aea;
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            resize: vertical;
+        }
+
+        .time-slots {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .time-slot {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.8rem;
+        }
+
+        .time-slot:hover {
+            border-color: #9f7aea;
+        }
+
+        .time-slot.selected {
+            background: linear-gradient(135deg, #9f7aea 0%, #667eea 100%);
+            color: white;
+            border-color: #9f7aea;
+        }
+
+        .priority-selector {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .priority-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .priority-btn.selected {
+            background: linear-gradient(135deg, #9f7aea 0%, #667eea 100%);
+            color: white;
+            border-color: #9f7aea;
+        }
+
+        .priority-btn.maybe.selected {
+            background: linear-gradient(135deg, #f093fb 0%, #f9ca24 100%);
+            color: white;
+            border-color: #f093fb;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #9f7aea 0%, #667eea 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 600px) {
+            .calendar-grid {
+                gap: 0.25rem;
+            }
+            
+            .day-cell {
+                min-height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Oma Time</h1>
+        <p>Family Care Coordination</p>
+        <div class="user-selector">
+            <button class="user-btn active" data-user="oma">Oma</button>
+            <button class="user-btn" data-user="riana">Riana</button>
+            <button class="user-btn" data-user="justin">Justin</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="calendar-nav">
+            <button class="nav-btn" id="prevMonth">‹</button>
+            <div class="month-year" id="monthYear"></div>
+            <button class="nav-btn" id="nextMonth">›</button>
+            <button class="nav-btn" id="viewAllBtn" style="background: #48bb78;">View All</button>
+        </div>
+
+        <div class="calendar">
+            <div class="calendar-grid" id="calendar">
+                <div>Loading calendar...</div>
+            </div>
+        </div>
+
+        <div class="debug-info">
+            <div><strong>Debug Info:</strong></div>
+            <div>Current User: <span id="debugUser">oma</span></div>
+            <div>Current Date: <span id="debugDate">-</span></div>
+            <div>Status: <span id="debugStatus">Initializing...</span></div>
+        </div>
+    </div>
+
+    <!-- Request Modal -->
+    <div class="modal" id="requestModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Request Oma Time</h2>
+                <button class="close-btn" onclick="closeRequestModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Date: <span id="selectedDate"></span></label>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Oma Come Over Time</label>
+                    <select class="form-select" id="comeOverTime">
+                        <option value="">Select time...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Oma Go Home Time</label>
+                    <select class="form-select" id="goHomeTime">
+                        <option value="">Select time...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Priority</label>
+                    <div class="priority-selector">
+                        <button type="button" class="priority-btn selected" data-priority="normal">Normal</button>
+                        <button type="button" class="priority-btn maybe" data-priority="maybe">Maybe</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes (optional)</label>
+                    <textarea class="form-textarea" id="requestNotes" rows="3" placeholder="Any special instructions..."></textarea>
+                </div>
+                <button class="btn-primary" onclick="submitRequest()">Submit Request</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View All Requests Modal -->
+    <div class="modal" id="viewAllModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">All Care Requests This Month</h2>
+                <button class="close-btn" onclick="closeViewAllModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="allRequestsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Oma Unavailable Modal -->
+    <div class="modal" id="unavailableModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Mark Unavailable Time</h2>
+                <button class="close-btn" onclick="closeUnavailableModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Date: <span id="unavailableDate"></span></label>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Unavailable From</label>
+                    <select class="form-select" id="unavailableFromTime">
+                        <option value="">Select time...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Unavailable Until</label>
+                    <select class="form-select" id="unavailableUntilTime">
+                        <option value="">Select time...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="allDayUnavailable" style="margin-right: 0.5rem;">
+                        All Day Unavailable
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reason (optional)</label>
+                    <textarea class="form-textarea" id="unavailableReason" rows="2" placeholder="Doctor appointment, vacation, etc..."></textarea>
+                </div>
+                <button class="btn-primary" onclick="submitUnavailable()">Mark Unavailable</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="floating-btn" id="fabBtn">+</button>
+
+    <script>
+        // Override localStorage to prevent any accidental calls
+        const originalConsoleLog = console.log;
+        
+        // Intercept any localStorage access attempts
+        Object.defineProperty(window, 'localStorage', {
+            get: function() {
+                console.log('🚫 localStorage access blocked - using memory only');
+                return {
+                    getItem: () => null,
+                    setItem: () => {},
+                    removeItem: () => {},
+                    clear: () => {}
+                };
+            }
+        });
+        
+        console.log('Script starting...');
+        
+        // Global variables
+        let currentUser = 'oma';
+        let currentDate = new Date();
+        let careRequests = {};
+        let unavailableTimes = {}; // Track Oma's unavailable times
+        let selectedDate = null;
+        let selectedTimeSlots = [];
+        let database = null; // Make database global
+
+        // Wait for page to load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded!');
+            updateDebugInfo('DOM loaded');
+            
+            try {
+                setupButtons();
+                renderCalendar(); // Render calendar immediately
+                updateFAB(); // Fixed function name
+                loadSavedRequests(); // Load saved data
+                console.log('✅ App initialized successfully');
+            } catch (error) {
+                console.error('❌ Error during initialization:', error);
+                console.log('Error: ' + error.message);
+            }
+        });
+
+        function updateDebugInfo(status) {
+            // Debug function removed - keeping for console logging only
+            console.log('Status:', status);
+        }
+
+        function setupButtons() {
+            console.log('Setting up buttons...');
+            
+            // User selector buttons
+            const userBtns = document.querySelectorAll('.user-btn');
+            console.log('Found', userBtns.length, 'user buttons');
+            
+            userBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    console.log('Button clicked:', this.dataset.user);
+                    
+                    // Remove active from all
+                    userBtns.forEach(b => b.classList.remove('active'));
+                    
+                    // Add active to clicked
+                    this.classList.add('active');
+                    
+                    // Update current user
+                    currentUser = this.dataset.user;
+                    console.log('Current user is now:', currentUser);
+                    
+                    updateDebugInfo('User changed to ' + currentUser);
+                    updateFAB();
+                });
+            });
+
+            // Navigation buttons
+            const prevBtn = document.getElementById('prevMonth');
+            const nextBtn = document.getElementById('nextMonth');
+            
+            if (prevBtn) {
+                prevBtn.addEventListener('click', function() {
+                    console.log('Previous month clicked');
+                    currentDate.setMonth(currentDate.getMonth() - 1);
+                    renderCalendar();
+                    updateDebugInfo('Changed to previous month');
+                });
+            }
+            
+            if (nextBtn) {
+                nextBtn.addEventListener('click', function() {
+                    console.log('Next month clicked');
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                    renderCalendar();
+                    updateDebugInfo('Changed to next month');
+                });
+            }
+
+            // FAB button - Updated for Oma unavailable times
+            const fabBtn = document.getElementById('fabBtn');
+            if (fabBtn) {
+                fabBtn.addEventListener('click', function() {
+                    console.log('➕ FAB clicked by:', currentUser);
+                    if (currentUser === 'oma') {
+                        selectedDate = new Date(); // Default to today
+                        openUnavailableModal();
+                    } else {
+                        selectedDate = new Date(); // Default to today
+                        openRequestModal();
+                    }
+                });
+            }
+
+            // View All button
+            const viewAllBtn = document.getElementById('viewAllBtn');
+            if (viewAllBtn) {
+                viewAllBtn.addEventListener('click', function() {
+                    console.log('View All clicked');
+                    openViewAllModal();
+                });
+            }
+
+            // Priority buttons
+            document.querySelectorAll('.priority-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Remove selected from all
+                    document.querySelectorAll('.priority-btn').forEach(b => b.classList.remove('selected'));
+                    // Add selected to clicked
+                    this.classList.add('selected');
+                    console.log('Priority selected:', this.dataset.priority);
+                });
+            });
+        }
+
+        function updateFAB() {
+            const fab = document.getElementById('fabBtn');
+            if (fab) {
+                if (currentUser === 'oma') {
+                    fab.style.display = 'none';
+                } else {
+                    fab.style.display = 'block';
+                }
+                console.log('FAB visibility:', fab.style.display);
+            }
+        }
+
+        function renderCalendar() {
+            console.log('Rendering calendar for:', currentDate);
+            
+            const calendar = document.getElementById('calendar');
+            const monthYear = document.getElementById('monthYear');
+            
+            if (!calendar || !monthYear) {
+                console.error('Calendar elements not found!');
+                return;
+            }
+            
+            // Prevent infinite rendering loops
+            if (calendar.dataset.rendering === 'true') {
+                console.log('Calendar already rendering, skipping...');
+                return;
+            }
+            calendar.dataset.rendering = 'true';
+            
+            // Update month/year display
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                               'July', 'August', 'September', 'October', 'November', 'December'];
+            monthYear.textContent = monthNames[currentDate.getMonth()] + ' ' + currentDate.getFullYear();
+            
+            // Clear calendar
+            calendar.innerHTML = '';
+            
+            // Add day headers
+            const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            dayHeaders.forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'day-header';
+                header.textContent = day;
+                calendar.appendChild(header);
+            });
+            
+            // Get calendar info
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay();
+            const today = new Date();
+            
+            // Add empty cells for previous month
+            for (let i = 0; i < startingDayOfWeek; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'day-cell other-month';
+                calendar.appendChild(emptyCell);
+            }
+            
+            // Add days of current month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.className = 'day-cell';
+                
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = day;
+                dayCell.appendChild(dayNumber);
+                
+                // Check for unavailable times and requests on this day
+                const cellDate = new Date(year, month, day);
+                const dateKey = cellDate.toDateString();
+                const dayRequests = careRequests[dateKey] || [];
+                const dayUnavailable = unavailableTimes[dateKey] || [];
+                
+                // Show unavailable first (higher priority visual)
+                if (dayUnavailable.length > 0) {
+                    dayCell.classList.add('unavailable');
+                    const unavailableEl = document.createElement('div');
+                    unavailableEl.className = 'request-count';
+                    
+                    // Show time blocks for unavailable times
+                    const unavailableBlocks = getUnavailableBlocksForDay(dayUnavailable);
+                    unavailableEl.textContent = unavailableBlocks;
+                    
+                    dayCell.appendChild(unavailableEl);
+                } else if (dayRequests.length > 0) {
+                    dayCell.classList.add('has-requests');
+                    
+                    // Show time blocks instead of count
+                    const timeBlocks = getTimeBlocksForDay(dayRequests);
+                    const timeEl = document.createElement('div');
+                    timeEl.className = 'request-count';
+                    timeEl.textContent = timeBlocks;
+                    dayCell.appendChild(timeEl);
+                }
+                
+                // Check if it's today
+                if (cellDate.toDateString() === today.toDateString()) {
+                    dayCell.classList.add('today');
+                }
+                
+                // Add click handler - prevent multiple event listeners
+                dayCell.addEventListener('click', function dayClickHandler() {
+                    const clickedDate = new Date(year, month, day);
+                    
+                    const dateKey = clickedDate.toDateString();
+                    const dayRequests = careRequests[dateKey] || [];
+                    const dayUnavailable = unavailableTimes[dateKey] || [];
+                    
+                    if (currentUser === 'oma') {
+                        // Oma can mark unavailable times or view requests
+                        if (dayRequests.length > 0 || dayUnavailable.length > 0) {
+                            showDayDetails(clickedDate, dayRequests, dayUnavailable);
+                        } else {
+                            selectedDate = clickedDate;
+                            openUnavailableModal();
+                        }
+                    } else {
+                        // Riana/Justin can make requests or view existing ones
+                        if (dayRequests.length > 0) {
+                            showDayRequests(clickedDate, dayRequests);
+                        } else {
+                            selectedDate = clickedDate;
+                            openRequestModal();
+                        }
+                    }
+                }, { once: false }); // Use once: false but prevent duplicates above
+                
+                calendar.appendChild(dayCell);
+            }
+            
+            // Mark rendering as complete
+            calendar.dataset.rendering = 'false';
+            console.log('Calendar rendered successfully');
+        }
+
+        function openRequestModal() {
+            console.log('🎯 Opening request modal for date:', selectedDate);
+            console.log('Current user:', currentUser);
+            
+            if (!selectedDate) {
+                selectedDate = new Date();
+                console.log('No date selected, using today:', selectedDate);
+            }
+            
+            const modal = document.getElementById('requestModal');
+            const selectedDateSpan = document.getElementById('selectedDate');
+            
+            if (selectedDateSpan && selectedDate) {
+                selectedDateSpan.textContent = selectedDate.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+            
+            populateTimeSelects();
+            
+            if (modal) {
+                modal.style.display = 'block';
+                console.log('✅ Request modal opened successfully');
+            } else {
+                console.error('❌ Modal element not found!');
+            }
+        }
+
+        function closeRequestModal() {
+            const modal = document.getElementById('requestModal');
+            modal.style.display = 'none';
+            
+            // Reset form
+            document.getElementById('comeOverTime').value = '';
+            document.getElementById('goHomeTime').value = '';
+            document.getElementById('requestNotes').value = '';
+            
+            console.log('Request modal closed');
+        }
+
+        function populateTimeSelects() {
+            const comeOverSelect = document.getElementById('comeOverTime');
+            const goHomeSelect = document.getElementById('goHomeTime');
+            
+            // Clear existing options except first
+            comeOverSelect.innerHTML = '<option value="">Select time...</option>';
+            goHomeSelect.innerHTML = '<option value="">Select time...</option>';
+
+            // Generate 30-minute slots from 4 AM to 4 AM next day (24 hours)
+            for (let hour = 4; hour < 28; hour++) {
+                for (let minute = 0; minute < 60; minute += 30) {
+                    const displayHour = hour >= 24 ? hour - 24 : hour;
+                    const time24 = `${String(displayHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+                    const time12 = formatTime12Hour(displayHour, minute);
+                    
+                    const comeOption = document.createElement('option');
+                    comeOption.value = time24;
+                    comeOption.textContent = time12;
+                    comeOverSelect.appendChild(comeOption);
+                    
+                    const goOption = document.createElement('option');
+                    goOption.value = time24;
+                    goOption.textContent = time12;
+                    goHomeSelect.appendChild(goOption);
+                }
+            }
+        }
+
+        function formatTime12Hour(hour, minute) {
+            const period = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+            return `${displayHour}:${String(minute).padStart(2, '0')} ${period}`;
+        }
+
+        function toggleTimeSlot(slot, time) {
+            if (slot.classList.contains('selected')) {
+                slot.classList.remove('selected');
+                selectedTimeSlots = selectedTimeSlots.filter(t => t !== time);
+            } else {
+                slot.classList.add('selected');
+                selectedTimeSlots.push(time);
+                selectedTimeSlots.sort();
+                
+                // Check if we should auto-select range
+                if (selectedTimeSlots.length >= 2) {
+                    autoSelectTimeRange();
+                }
+            }
+            
+            console.log('Selected time slots:', selectedTimeSlots);
+            console.log('Selected ' + selectedTimeSlots.length + ' time slots');
+        }
+
+        function autoSelectTimeRange() {
+            const timeSlots = Array.from(document.querySelectorAll('.time-slot'));
+            const selectedTimes = selectedTimeSlots.map(time => {
+                const [hour, minute] = time.split(':').map(Number);
+                return hour * 60 + minute;
+            }).sort((a, b) => a - b);
+            
+            if (selectedTimes.length >= 2) {
+                const start = selectedTimes[0];
+                const end = selectedTimes[selectedTimes.length - 1];
+                
+                // Select all slots between start and end
+                timeSlots.forEach(slot => {
+                    const slotTime = slot.dataset.time;
+                    const [hour, minute] = slotTime.split(':').map(Number);
+                    const slotMinutes = hour * 60 + minute;
+                    
+                    if (slotMinutes >= start && slotMinutes <= end) {
+                        if (!slot.classList.contains('selected')) {
+                            slot.classList.add('selected');
+                            if (!selectedTimeSlots.includes(slotTime)) {
+                                selectedTimeSlots.push(slotTime);
+                            }
+                        }
+                    }
+                });
+                
+                selectedTimeSlots.sort();
+                console.log('Auto-selected range:', selectedTimeSlots);
+            }
+        }
+
+        function getTimeBlocksForDay(requests) {
+            if (requests.length === 0) return '1 req';
+            
+            // Get all time ranges for the day
+            const timeRanges = requests.map(request => {
+                if (request.comeOverTime && request.goHomeTime) {
+                    // New format
+                    return `${request.comeOver12}-${request.goHome12}`;
+                } else if (request.timeSlots) {
+                    // Old format - convert for backward compatibility
+                    const sortedSlots = request.timeSlots.sort();
+                    if (sortedSlots.length === 1) {
+                        return formatTime12Hour(...sortedSlots[0].split(':').map(Number));
+                    } else {
+                        const start = formatTime12Hour(...sortedSlots[0].split(':').map(Number));
+                        const end = formatTime12Hour(...sortedSlots[sortedSlots.length - 1].split(':').map(Number));
+                        return `${start}-${end}`;
+                    }
+                }
+                return '?';
+            });
+            
+            return timeRanges.join(', ');
+        }
+
+        function openViewAllModal() {
+            const modal = document.getElementById('viewAllModal');
+            const listContainer = document.getElementById('allRequestsList');
+            
+            listContainer.innerHTML = '';
+            
+            const currentMonth = currentDate.getMonth();
+            const currentYear = currentDate.getFullYear();
+            
+            let hasRequests = false;
+            
+            // Get all requests for current month
+            Object.keys(careRequests).forEach(dateKey => {
+                const date = new Date(dateKey);
+                if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+                    hasRequests = true;
+                    const requests = careRequests[dateKey];
+                    
+                    const dayDiv = document.createElement('div');
+                    dayDiv.style.marginBottom = '1rem';
+                    dayDiv.style.padding = '1rem';
+                    dayDiv.style.border = '1px solid #e2e8f0';
+                    dayDiv.style.borderRadius = '10px';
+                    dayDiv.style.background = '#f7fafc';
+                    
+                    const dateHeader = document.createElement('h3');
+                    dateHeader.textContent = date.toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                    dateHeader.style.color = '#4a5568';
+                    dateHeader.style.marginBottom = '0.5rem';
+                    dayDiv.appendChild(dateHeader);
+                    
+                    requests.forEach((request, index) => {
+                        const reqDiv = document.createElement('div');
+                        reqDiv.style.marginBottom = '0.5rem';
+                        reqDiv.style.padding = '0.5rem';
+                        reqDiv.style.background = 'white';
+                        reqDiv.style.borderRadius = '8px';
+                        reqDiv.style.borderLeft = `4px solid ${request.priority === 'maybe' ? '#f093fb' : '#9f7aea'}`;
+                        
+                        reqDiv.innerHTML = `
+                            <div><strong>Requested by:</strong> ${request.requester}</div>
+                            <div><strong>Time:</strong> ${request.comeOver12 ? `${request.comeOver12} - ${request.goHome12}` : getTimeBlocksForDay([request])}</div>
+                            <div><strong>Priority:</strong> ${request.priority}</div>
+                            ${request.notes ? `<div><strong>Notes:</strong> ${request.notes}</div>` : ''}
+                        `;
+                        
+                        dayDiv.appendChild(reqDiv);
+                    });
+                    
+                    listContainer.appendChild(dayDiv);
+                }
+            });
+            
+            if (!hasRequests) {
+                listContainer.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 2rem;">No care requests for this month.</p>';
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        function closeViewAllModal() {
+            document.getElementById('viewAllModal').style.display = 'none';
+        }
+
+        // Oma Unavailable Time Functions
+        function openUnavailableModal() {
+            console.log('🚫 Opening unavailable modal for date:', selectedDate);
+            
+            if (!selectedDate) {
+                selectedDate = new Date();
+                console.log('No date selected, using today:', selectedDate);
+            }
+            
+            const modal = document.getElementById('unavailableModal');
+            const selectedDateSpan = document.getElementById('unavailableDate');
+            
+            if (selectedDateSpan && selectedDate) {
+                selectedDateSpan.textContent = selectedDate.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+            
+            populateUnavailableTimeSelects();
+            
+            if (modal) {
+                modal.style.display = 'block';
+                console.log('✅ Unavailable modal opened successfully');
+            }
+        }
+
+        function closeUnavailableModal() {
+            const modal = document.getElementById('unavailableModal');
+            modal.style.display = 'none';
+            
+            // Reset form
+            document.getElementById('unavailableFromTime').value = '';
+            document.getElementById('unavailableUntilTime').value = '';
+            document.getElementById('allDayUnavailable').checked = false;
+            document.getElementById('unavailableReason').value = '';
+            
+            // Clear selected date to allow selecting new days
+            selectedDate = null;
+            
+            console.log('Unavailable modal closed');
+        }
+
+        function populateUnavailableTimeSelects() {
+            const fromSelect = document.getElementById('unavailableFromTime');
+            const untilSelect = document.getElementById('unavailableUntilTime');
+            
+            // Clear existing options
+            fromSelect.innerHTML = '<option value="">Select time...</option>';
+            untilSelect.innerHTML = '<option value="">Select time...</option>';
+
+            // Generate 30-minute slots from 4 AM to 4 AM next day
+            for (let hour = 4; hour < 28; hour++) {
+                for (let minute = 0; minute < 60; minute += 30) {
+                    const displayHour = hour >= 24 ? hour - 24 : hour;
+                    const time24 = `${String(displayHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+                    const time12 = formatTime12Hour(displayHour, minute);
+                    
+                    const fromOption = document.createElement('option');
+                    fromOption.value = time24;
+                    fromOption.textContent = time12;
+                    fromSelect.appendChild(fromOption);
+                    
+                    const untilOption = document.createElement('option');
+                    untilOption.value = time24;
+                    untilOption.textContent = time12;
+                    untilSelect.appendChild(untilOption);
+                }
+            }
+
+            // Handle all day checkbox
+            const allDayCheckbox = document.getElementById('allDayUnavailable');
+            allDayCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    fromSelect.disabled = true;
+                    untilSelect.disabled = true;
+                    fromSelect.value = '';
+                    untilSelect.value = '';
+                } else {
+                    fromSelect.disabled = false;
+                    untilSelect.disabled = false;
+                }
+            });
+        }
+
+        function submitUnavailable() {
+            console.log('🚫 Submitting unavailable time...');
+            
+            if (!selectedDate) {
+                console.log('No date selected');
+                return;
+            }
+            
+            const allDay = document.getElementById('allDayUnavailable').checked;
+            const fromTime = document.getElementById('unavailableFromTime').value;
+            const untilTime = document.getElementById('unavailableUntilTime').value;
+            const reason = document.getElementById('unavailableReason').value;
+            
+            if (!allDay && (!fromTime || !untilTime)) {
+                console.log('Missing time selection');
+                return;
+            }
+            
+            const dateKey = selectedDate.toDateString();
+            
+            if (!unavailableTimes[dateKey]) {
+                unavailableTimes[dateKey] = [];
+            }
+            
+            const unavailable = {
+                id: Date.now(),
+                date: selectedDate.toDateString(),
+                allDay: allDay,
+                fromTime: fromTime,
+                untilTime: untilTime,
+                from12: fromTime ? formatTime12Hour(...fromTime.split(':').map(Number)) : null,
+                until12: untilTime ? formatTime12Hour(...untilTime.split(':').map(Number)) : null,
+                reason: reason,
+                timestamp: new Date().toISOString()
+            };
+            
+            unavailableTimes[dateKey].push(unavailable);
+            
+            console.log('✅ Unavailable time created:', unavailable);
+            
+            saveUnavailableData();
+            
+            closeUnavailableModal();
+            renderCalendar();
+            
+            console.log('🎉 Unavailable time marked successfully!');
+        }
+
+        function saveUnavailableData() {
+            console.log('💾 Saving unavailable times to memory...');
+            
+            // Save to Firebase if available
+            if (database) {
+                try {
+                    database.ref('unavailableTimes').set(unavailableTimes);
+                    console.log('✅ Also saved unavailable times to Firebase');
+                } catch (error) {
+                    console.error('❌ Firebase save failed:', error);
+                }
+            }
+        }
+
+        function showDayDetails(date, requests, unavailableTimes) {
+            console.log('📋 Showing day details for:', date);
+            
+            let message = `Details for ${date.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric'
+            })}:\n\n`;
+            
+            if (unavailableTimes.length > 0) {
+                message += `UNAVAILABLE TIMES:\n`;
+                unavailableTimes.forEach((unavail, index) => {
+                    if (unavail.allDay) {
+                        message += `• All Day Unavailable\n`;
+                    } else {
+                        message += `• ${unavail.from12} - ${unavail.until12}\n`;
+                    }
+                    if (unavail.reason) {
+                        message += `  Reason: ${unavail.reason}\n`;
+                    }
+                    message += `\n`;
+                });
+            }
+            
+            if (requests.length > 0) {
+                message += `CARE REQUESTS:\n`;
+                requests.forEach((request, index) => {
+                    message += `• Requested by: ${request.requester}\n`;
+                    message += `• Time: ${request.comeOver12 ? `${request.comeOver12} - ${request.goHome12}` : 'Time not specified'}\n`;
+                    message += `• Priority: ${request.priority}\n`;
+                    if (request.notes) {
+                        message += `• Notes: ${request.notes}\n`;
+                    }
+                    message += `\n`;
+                });
+            }
+            
+            if (requests.length === 0 && unavailableTimes.length === 0) {
+                message += 'No requests or unavailable times for this date.';
+            }
+            
+            console.log(message);
+        }
+
+        function getUnavailableBlocksForDay(unavailableTimes) {
+            if (unavailableTimes.length === 0) return '';
+            
+            // Check if any are all day
+            const allDayUnavail = unavailableTimes.find(u => u.allDay);
+            if (allDayUnavail) {
+                return 'All Day';
+            }
+            
+            // Get all time ranges for the day
+            const timeRanges = unavailableTimes.map(unavail => {
+                if (unavail.from12 && unavail.until12) {
+                    return `${unavail.from12}-${unavail.until12}`;
+                }
+                return 'Time TBD';
+            });
+            
+            return timeRanges.join(', ');
+        }
+
+        function submitRequest() {
+            console.log('Submitting request...');
+            console.log('Selected date:', selectedDate);
+            
+            if (!selectedDate) {
+                alert('Please select a date first');
+                return;
+            }
+            
+            const comeOverTime = document.getElementById('comeOverTime').value;
+            const goHomeTime = document.getElementById('goHomeTime').value;
+            
+            if (!comeOverTime) {
+                alert('Please select Oma Come Over time');
+                return;
+            }
+            
+            if (!goHomeTime) {
+                alert('Please select Oma Go Home time');
+                return;
+            }
+            
+            // Validate that go home is after come over
+            const [comeHour, comeMin] = comeOverTime.split(':').map(Number);
+            const [goHour, goMin] = goHomeTime.split(':').map(Number);
+            const comeMinutes = comeHour * 60 + comeMin;
+            const goMinutes = goHour * 60 + goMin + (goHour < comeHour ? 1440 : 0); // Handle next day
+            
+            if (goMinutes <= comeMinutes) {
+                alert('Oma Go Home time must be after Come Over time');
+                return;
+            }
+            
+            const priorityBtn = document.querySelector('.priority-btn.selected');
+            const priority = priorityBtn ? priorityBtn.dataset.priority : 'normal';
+            const notes = document.getElementById('requestNotes').value;
+            
+            console.log('Come Over:', comeOverTime, 'Go Home:', goHomeTime);
+            console.log('Priority:', priority);
+            console.log('Notes:', notes);
+            
+            const dateKey = selectedDate.toDateString();
+            console.log('Date key:', dateKey);
+            
+            if (!careRequests[dateKey]) {
+                careRequests[dateKey] = [];
+            }
+            
+            const request = {
+                id: Date.now(),
+                date: selectedDate.toDateString(),
+                comeOverTime: comeOverTime,
+                goHomeTime: goHomeTime,
+                comeOver12: formatTime12Hour(...comeOverTime.split(':').map(Number)),
+                goHome12: formatTime12Hour(...goHomeTime.split(':').map(Number)),
+                priority: priority,
+                notes: notes,
+                requester: currentUser,
+                timestamp: new Date().toISOString()
+            };
+            
+            careRequests[dateKey].push(request);
+            
+            console.log('Request created:', request);
+            console.log('All care requests:', careRequests);
+            
+            // Save to Firebase and localStorage
+            if (database) {
+                try {
+                    database.ref('careRequests').set(careRequests);
+                    console.log('Saved to Firebase successfully');
+                } catch (error) {
+                    console.error('Error saving to Firebase:', error);
+                    // Fallback to localStorage
+                    localStorage.setItem('careRequests', JSON.stringify(careRequests));
+                }
+            } else {
+                // Save to localStorage
+                localStorage.setItem('careRequests', JSON.stringify(careRequests));
+                console.log('Saved to localStorage successfully');
+            }
+            
+            updateDebugInfo('Request submitted for ' + selectedDate.toDateString());
+            
+            closeRequestModal();
+            renderCalendar(); // Refresh calendar to show the request
+            
+            alert('Oma time request submitted successfully!');
+        }
+
+        function showDayRequests(date, requests) {
+            console.log('Showing requests for:', date);
+            
+            let message = `Care Requests for ${date.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric'
+            })}:\n\n`;
+            
+            requests.forEach((request, index) => {
+                message += `Request ${index + 1}:\n`;
+                message += `• Requested by: ${request.requester}\n`;
+                message += `• Time: ${request.comeOver12 ? `${request.comeOver12} - ${request.goHome12}` : 'Time not specified'}\n`;
+                message += `• Priority: ${request.priority}\n`;
+                if (request.notes) {
+                    message += `• Notes: ${request.notes}\n`;
+                }
+                message += `• Submitted: ${new Date(request.timestamp).toLocaleString()}\n\n`;
+            });
+            
+            alert(message);
+            console.log('Viewed ' + requests.length + ' requests for ' + date.toDateString());
+        }
+
+        // Load saved requests on startup - COMPLETELY REMOVED localStorage
+        function loadSavedRequests() {
+            // Only use memory storage - no localStorage in sandboxed environment
+            careRequests = {};
+            console.log('📂 Initialized empty care requests (memory only)');
+        }
+    </script>
+</body>
+</html>
