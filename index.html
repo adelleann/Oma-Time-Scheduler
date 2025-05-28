@@ -358,6 +358,21 @@
             transform: translateY(-2px);
         }
 
+        .delete-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-left: 0.5rem;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+        }
+
         @media (max-width: 600px) {
             .calendar-grid {
                 gap: 0.25rem;
@@ -375,8 +390,7 @@
         <p>Family Care Coordination</p>
         <div class="user-selector">
             <button class="user-btn active" data-user="oma">Oma</button>
-            <button class="user-btn" data-user="riana">Riana</button>
-            <button class="user-btn" data-user="justin">Justin</button>
+            <button class="user-btn" data-user="family">Riana & Justin</button>
         </div>
     </div>
 
@@ -437,6 +451,7 @@
                     <textarea class="form-textarea" id="requestNotes" rows="3" placeholder="Any special instructions..."></textarea>
                 </div>
                 <button class="btn-primary" onclick="submitRequest()">Submit Request</button>
+                <button class="btn-primary" onclick="clearRequest()" style="background: #ef4444; margin-top: 0.5rem;">Clear Request</button>
             </div>
         </div>
     </div>
@@ -488,6 +503,7 @@
                     <textarea class="form-textarea" id="unavailableReason" rows="2" placeholder="Doctor appointment, vacation, etc..."></textarea>
                 </div>
                 <button class="btn-primary" onclick="submitUnavailable()">Mark Unavailable</button>
+                <button class="btn-primary" onclick="clearUnavailable()" style="background: #ef4444; margin-top: 0.5rem;">Clear Unavailable</button>
             </div>
         </div>
     </div>
@@ -521,6 +537,8 @@
         let selectedDate = null;
         let selectedTimeSlots = [];
         let database = null; // Make database global
+        let editingRequest = null; // Track if we're editing vs creating new
+        let editingUnavailable = null;
 
         // Wait for page to load
         document.addEventListener('DOMContentLoaded', function() {
@@ -743,18 +761,30 @@
                     const dayUnavailable = unavailableTimes[dateKey] || [];
                     
                     if (currentUser === 'oma') {
-                        // Oma can mark unavailable times or view requests
-                        if (dayRequests.length > 0 || dayUnavailable.length > 0) {
-                            showDayDetails(clickedDate, dayRequests, dayUnavailable);
+                        // Oma can edit unavailable times or view requests
+                        if (dayUnavailable.length > 0) {
+                            // Edit existing unavailable time
+                            selectedDate = clickedDate;
+                            editUnavailableTime(clickedDate, dayUnavailable[0]);
+                        } else if (dayRequests.length > 0) {
+                            // Just view requests
+                            showDayRequests(clickedDate, dayRequests);
                         } else {
+                            // Create new unavailable time
                             selectedDate = clickedDate;
                             openUnavailableModal();
                         }
                     } else {
-                        // Riana/Justin can make requests or view existing ones
+                        // Family can edit requests
                         if (dayRequests.length > 0) {
-                            showDayRequests(clickedDate, dayRequests);
+                            // Edit existing request
+                            console.log('Found', dayRequests.length, 'requests for this day');
+                            console.log('Editing first request:', dayRequests[0]);
+                            selectedDate = clickedDate;
+                            editRequest(clickedDate, dayRequests[0]);
                         } else {
+                            // Create new request
+                            console.log('No existing requests, creating new');
                             selectedDate = clickedDate;
                             openRequestModal();
                         }
@@ -778,6 +808,9 @@
                 console.log('No date selected, using today:', selectedDate);
             }
             
+            // Reset editing state for new requests
+            editingRequest = null;
+            
             const modal = document.getElementById('requestModal');
             const selectedDateSpan = document.getElementById('selectedDate');
             
@@ -791,6 +824,19 @@
             }
             
             populateTimeSelects();
+            
+            // Reset form for new request
+            document.getElementById('comeOverTime').value = '';
+            document.getElementById('goHomeTime').value = '';
+            document.getElementById('requestNotes').value = '';
+            
+            // Reset priority to normal
+            document.querySelectorAll('.priority-btn[data-priority]').forEach(btn => {
+                btn.classList.remove('selected');
+                if (btn.dataset.priority === 'normal') {
+                    btn.classList.add('selected');
+                }
+            });
             
             if (modal) {
                 modal.style.display = 'block';
@@ -1091,7 +1137,7 @@
             const reason = document.getElementById('unavailableReason').value;
             
             if (!allDay && (!fromTime || !untilTime)) {
-                console.log('Missing time selection');
+                console.log('❌ Missing time selection - need both from and until times');
                 return;
             }
             
@@ -1148,39 +1194,245 @@
                 day: 'numeric'
             })}:\n\n`;
             
+            let hasItems = false;
+            
             if (unavailableTimes.length > 0) {
+                hasItems = true;
                 message += `UNAVAILABLE TIMES:\n`;
                 unavailableTimes.forEach((unavail, index) => {
                     if (unavail.allDay) {
-                        message += `• All Day Unavailable\n`;
+                        message += `${index + 1}. All Day Unavailable\n`;
                     } else {
-                        message += `• ${unavail.from12} - ${unavail.until12}\n`;
+                        message += `${index + 1}. ${unavail.from12} - ${unavail.until12}\n`;
                     }
                     if (unavail.reason) {
-                        message += `  Reason: ${unavail.reason}\n`;
+                        message += `   Reason: ${unavail.reason}\n`;
                     }
-                    message += `\n`;
                 });
+                message += `\n`;
             }
             
             if (requests.length > 0) {
+                hasItems = true;
                 message += `CARE REQUESTS:\n`;
                 requests.forEach((request, index) => {
-                    message += `• Requested by: ${request.requester}\n`;
-                    message += `• Time: ${request.comeOver12 ? `${request.comeOver12} - ${request.goHome12}` : 'Time not specified'}\n`;
-                    message += `• Priority: ${request.priority}\n`;
+                    const reqNum = unavailableTimes.length + index + 1;
+                    message += `${reqNum}. ${request.requester} - ${request.comeOver12} to ${request.goHome12}\n`;
+                    message += `   Priority: ${request.priority}\n`;
                     if (request.notes) {
-                        message += `• Notes: ${request.notes}\n`;
+                        message += `   Notes: ${request.notes}\n`;
                     }
-                    message += `\n`;
                 });
+                message += `\n`;
             }
             
-            if (requests.length === 0 && unavailableTimes.length === 0) {
+            if (!hasItems) {
                 message += 'No requests or unavailable times for this date.';
+                console.log(message);
+                return;
             }
             
-            console.log(message);
+            message += '\n=== DELETE OPTIONS ===\n';
+            message += 'Choose an item to delete:\n\n';
+            
+            // Add unavailable times to delete list
+            unavailableTimes.forEach((unavail, index) => {
+                const timeText = unavail.allDay ? 'All Day' : `${unavail.from12} - ${unavail.until12}`;
+                message += `${index + 1}. DELETE Unavailable: ${timeText}\n`;
+            });
+            
+            // Add requests to delete list  
+            requests.forEach((request, index) => {
+                const reqNum = unavailableTimes.length + index + 1;
+                message += `${reqNum}. DELETE Request: ${request.comeOver12} - ${request.goHome12}\n`;
+            });
+            
+            const choice = prompt(message + '\nEnter number to DELETE (or Cancel):');
+            const itemIndex = parseInt(choice) - 1;
+            
+            if (itemIndex >= 0) {
+                if (itemIndex < unavailableTimes.length) {
+                    // Delete unavailable time
+                    const unavail = unavailableTimes[itemIndex];
+                    const timeText = unavail.allDay ? 'All Day' : `${unavail.from12} - ${unavail.until12}`;
+                    const confirmDelete = confirm(`Delete unavailable time: ${timeText}?`);
+                    if (confirmDelete) {
+                        deleteUnavailable(date, itemIndex);
+                    }
+                } else {
+                    // Delete request
+                    const requestIndex = itemIndex - unavailableTimes.length;
+                    if (requestIndex < requests.length) {
+                        const request = requests[requestIndex];
+                        const confirmDelete = confirm(`Delete request: ${request.comeOver12} - ${request.goHome12}?`);
+                        if (confirmDelete) {
+                            deleteRequest(date, requestIndex);
+                        }
+                    }
+                }
+            }
+        }
+
+        function deleteRequest(date, requestIndex) {
+            const dateKey = date.toDateString();
+            careRequests[dateKey].splice(requestIndex, 1);
+            
+            // Remove date entry if no requests left
+            if (careRequests[dateKey].length === 0) {
+                delete careRequests[dateKey];
+            }
+            
+            saveData();
+            renderCalendar();
+            console.log('🗑️ Request deleted successfully');
+        }
+
+        function deleteUnavailable(date, unavailableIndex) {
+            const dateKey = date.toDateString();
+            unavailableTimes[dateKey].splice(unavailableIndex, 1);
+            
+            // Remove date entry if no unavailable times left
+            if (unavailableTimes[dateKey].length === 0) {
+                delete unavailableTimes[dateKey];
+            }
+            
+            saveUnavailableData();
+            renderCalendar();
+            console.log('🗑️ Unavailable time deleted successfully');
+        }
+
+        function editRequest(date, request) {
+            console.log('✏️ Editing request for:', date);
+            
+            // Store reference to the request being edited
+            editingRequest = request;
+            
+            // Pre-fill the form with existing request data
+            const modal = document.getElementById('requestModal');
+            const selectedDateSpan = document.getElementById('selectedDate');
+            
+            selectedDateSpan.textContent = date.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            // Set form values to existing request
+            populateTimeSelects();
+            document.getElementById('comeOverTime').value = request.comeOverTime;
+            document.getElementById('goHomeTime').value = request.goHomeTime;
+            document.getElementById('requestNotes').value = request.notes || '';
+            
+            // Set priority
+            document.querySelectorAll('.priority-btn[data-priority]').forEach(btn => {
+                btn.classList.remove('selected');
+                if (btn.dataset.priority === request.priority) {
+                    btn.classList.add('selected');
+                }
+            });
+            
+            modal.style.display = 'block';
+            console.log('✅ Request edit modal opened');
+        }
+
+        function editUnavailableTime(date, unavailable) {
+            console.log('✏️ Editing unavailable time for:', date);
+            
+            // Pre-fill the form with existing unavailable data
+            const modal = document.getElementById('unavailableModal');
+            const selectedDateSpan = document.getElementById('unavailableDate');
+            
+            selectedDateSpan.textContent = date.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            // Set form values to existing unavailable time
+            populateUnavailableTimeSelects();
+            document.getElementById('allDayUnavailable').checked = unavailable.allDay || false;
+            document.getElementById('unavailableFromTime').value = unavailable.fromTime || '';
+            document.getElementById('unavailableUntilTime').value = unavailable.untilTime || '';
+            document.getElementById('unavailableReason').value = unavailable.reason || '';
+            
+            // Handle all day checkbox state
+            const fromSelect = document.getElementById('unavailableFromTime');
+            const untilSelect = document.getElementById('unavailableUntilTime');
+            if (unavailable.allDay) {
+                fromSelect.disabled = true;
+                untilSelect.disabled = true;
+            }
+            
+            modal.style.display = 'block';
+            console.log('✅ Unavailable edit modal opened');
+        }
+
+        function clearRequest() {
+            if (!selectedDate) {
+                console.log('No selected date for clearing');
+                return;
+            }
+            
+            console.log('🗑️ CLEARING all care requests for this day');
+            const dateKey = selectedDate.toDateString();
+            console.log('Clearing requests for date:', dateKey);
+            console.log('Requests before clear:', careRequests[dateKey]);
+            
+            // Remove all requests for this date
+            if (careRequests[dateKey]) {
+                delete careRequests[dateKey];
+                
+                // Save to Firebase if available
+                if (database) {
+                    try {
+                        database.ref('careRequests').set(careRequests);
+                        console.log('✅ Saved to Firebase');
+                    } catch (error) {
+                        console.error('❌ Firebase save failed:', error);
+                    }
+                }
+                
+                closeRequestModal();
+                renderCalendar();
+                console.log('🗑️ All requests cleared for', dateKey);
+            } else {
+                console.log('No requests found to clear for', dateKey);
+            }
+        }
+
+        function clearUnavailable() {
+            if (!selectedDate) {
+                console.log('No selected date for clearing');
+                return;
+            }
+            
+            console.log('🗑️ CLEARING unavailable time for this day');
+            const dateKey = selectedDate.toDateString();
+            console.log('Clearing unavailable for date:', dateKey);
+            console.log('Unavailable before clear:', unavailableTimes[dateKey]);
+            
+            // Remove all unavailable times for this date
+            if (unavailableTimes[dateKey]) {
+                delete unavailableTimes[dateKey];
+                
+                // Save to Firebase if available
+                if (database) {
+                    try {
+                        database.ref('unavailableTimes').set(unavailableTimes);
+                        console.log('✅ Saved unavailable times to Firebase');
+                    } catch (error) {
+                        console.error('❌ Firebase save failed:', error);
+                    }
+                }
+                
+                closeUnavailableModal();
+                renderCalendar();
+                console.log('🗑️ Unavailable time cleared for', dateKey);
+            } else {
+                console.log('No unavailable times found to clear for', dateKey);
+            }
         }
 
         function getUnavailableBlocksForDay(unavailableTimes) {
@@ -1208,7 +1460,7 @@
             console.log('Selected date:', selectedDate);
             
             if (!selectedDate) {
-                alert('Please select a date first');
+                console.log('❌ Please select a date first');
                 return;
             }
             
@@ -1216,12 +1468,12 @@
             const goHomeTime = document.getElementById('goHomeTime').value;
             
             if (!comeOverTime) {
-                alert('Please select Oma Come Over time');
+                console.log('❌ No come over time selected');
                 return;
             }
             
             if (!goHomeTime) {
-                alert('Please select Oma Go Home time');
+                console.log('❌ No go home time selected');
                 return;
             }
             
@@ -1232,11 +1484,11 @@
             const goMinutes = goHour * 60 + goMin + (goHour < comeHour ? 1440 : 0); // Handle next day
             
             if (goMinutes <= comeMinutes) {
-                alert('Oma Go Home time must be after Come Over time');
+                console.log('❌ Go home time must be after come over time');
                 return;
             }
             
-            const priorityBtn = document.querySelector('.priority-btn.selected');
+            const priorityBtn = document.querySelector('.priority-btn.selected[data-priority]');
             const priority = priorityBtn ? priorityBtn.dataset.priority : 'normal';
             const notes = document.getElementById('requestNotes').value;
             
@@ -1260,7 +1512,7 @@
                 goHome12: formatTime12Hour(...goHomeTime.split(':').map(Number)),
                 priority: priority,
                 notes: notes,
-                requester: currentUser,
+                requester: 'Family',
                 timestamp: new Date().toISOString()
             };
             
@@ -1313,8 +1565,22 @@
                 message += `• Submitted: ${new Date(request.timestamp).toLocaleString()}\n\n`;
             });
             
-            alert(message);
-            console.log('Viewed ' + requests.length + ' requests for ' + date.toDateString());
+            message += '\n=== DELETE OPTIONS ===\n';
+            message += 'Choose a request to delete:\n\n';
+            
+            requests.forEach((request, index) => {
+                message += `${index + 1}. DELETE: ${request.comeOver12} - ${request.goHome12}\n`;
+            });
+            
+            const choice = prompt(message + '\nEnter number to DELETE (or Cancel):');
+            const requestIndex = parseInt(choice) - 1;
+            
+            if (requestIndex >= 0 && requestIndex < requests.length) {
+                const confirmDelete = confirm(`Delete request: ${requests[requestIndex].comeOver12} - ${requests[requestIndex].goHome12}?`);
+                if (confirmDelete) {
+                    deleteRequest(date, requestIndex);
+                }
+            }
         }
 
         // Load saved requests on startup - COMPLETELY REMOVED localStorage
